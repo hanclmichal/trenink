@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trénink</title>
+<meta name="description" content="Osobní tréninkový deník do posilovny, který funguje i bez internetu.">
+<meta name="theme-color" content="#f5f4f2">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Trénink">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="stylesheet" href="styles.css">
+<script type="module" src="app/main.js"></script>
+</head>
+<body>
+<header class="bar">
+  <button id="barBack" class="iconbtn" type="button" aria-label="Zpět" hidden></button>
+  <h1 id="barTitle" class="bar__title">Trénink</h1>
+  <button id="syncBtn" class="syncbtn" type="button" data-state="off"><span class="syncbtn__dot" aria-hidden="true"></span><span id="syncText" class="syncbtn__text"></span></button>
+  <a id="gearBtn" class="iconbtn" href="#/nastaveni" aria-label="Nastavení"></a>
+</header>
+<main id="view" class="view"></main>
+<nav class="tabs" aria-label="Hlavní navigace">
+  <a href="#/dnes" data-tab="dnes"><svg viewBox="0 0 24 24" class="ico" aria-hidden="true"><path d="M4 6h16M4 6v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6M8 3v4M16 3v4M8.5 14l2.5 2.5 5-5"/></svg><span>Dnes</span></a>
+  <a href="#/kalendar" data-tab="kalendar"><svg viewBox="0 0 24 24" class="ico" aria-hidden="true"><path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01"/></svg><span>Kalendář</span></a>
+  <a href="#/cviky" data-tab="cviky"><svg viewBox="0 0 24 24" class="ico" aria-hidden="true"><path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/></svg><span>Cviky</span></a>
+  <a href="#/prehled" data-tab="prehled"><svg viewBox="0 0 24 24" class="ico" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Přehled</span></a>
+</nav>
+<div id="update" class="update" role="status" hidden><span>Je k dispozici nová verze aplikace.</span><button type="button" class="btn btn--sm btn--primary">Načíst</button></div>
+<noscript><p style="padding:24px">Aplikace potřebuje zapnutý JavaScript.</p></noscript>
+</body>
+</html>
