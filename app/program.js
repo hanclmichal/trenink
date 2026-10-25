@@ -1,7 +1,7 @@
 // Training logic: rotation of days, calendar projection, building a session from the plan,
 // weight suggestions, warm-up sets and the numbers behind the statistics.
 import { store, sessionList } from './store.js';
-import { PARTIE } from './data.js';
+import { PARTIE, DEFAULT_PLAN, KARDIO_DRUHY } from './data.js';
 import { addDays, dow, today, roundTo, e1rm, num, diffDays, weekStart } from './format.js';
 
 /* ---------- rotation ---------- */
@@ -226,7 +226,69 @@ export function buildSession(date, poradi) {
     if (!e || !store.cvik.has(e.cvik)) return;
     cviky.push(makeExercise(e.cvik, slot, date, { slotIndex: i, opak: e.opak }));
   });
-  return { datum: date, den, varianta, poradi, stav: 'rozpracovano', zacatek: null, konec: null, pocit: null, poznamka: '', cviky };
+  const k = kardioPlan();
+  return { datum: date, den, varianta, poradi, stav: 'rozpracovano', zacatek: null, konec: null, pocit: null, poznamka: '', cviky, kardio: k.zapnuto ? [makeCardio(date)] : [] };
+}
+
+/* ---------- cardio ---------- */
+
+/** Cardio settings from the plan, with built-in defaults for anything missing. */
+export function kardioPlan() {
+  return { ...DEFAULT_PLAN.kardio, ...(store.plan.kardio || {}) };
+}
+export const cardioDone = s => (s.kardio || []).filter(k => k.hotovo && k.minuty > 0);
+
+/** The latest finished cardio entry before a date (optionally of one machine). */
+export function lastCardio(before, druh) {
+  const list = sessionList().filter(s => s.datum < before);
+  for (let i = list.length - 1; i >= 0; i--) {
+    const k = cardioDone(list[i]).filter(x => !druh || x.druh === druh);
+    if (k.length) return k[k.length - 1];
+  }
+  return null;
+}
+
+/** A new cardio entry: same machine and settings as last time, minutes from the plan. */
+export function makeCardio(date, druh) {
+  const plan = kardioPlan();
+  const last = lastCardio(date, druh);
+  const d = druh || (last && KARDIO_DRUHY[last.druh] ? last.druh : plan.druh);
+  const prev = last && last.druh === d ? last : lastCardio(date, d);
+  return {
+    druh: d,
+    minuty: plan.minuty,
+    rychlost: prev ? prev.rychlost ?? null : null,
+    sklon: prev ? prev.sklon ?? null : null,
+    uroven: prev ? prev.uroven ?? null : null,
+    tep: null,
+    hotovo: false,
+    poznamka: ''
+  };
+}
+
+/** Cardio minutes per week for the last `weeks` weeks (oldest first). */
+export function weeklyCardio(weeks = 12, ref = today()) {
+  const start = addDays(weekStart(ref), -7 * (weeks - 1));
+  const out = Array.from({ length: weeks }, (_, i) => ({ od: addDays(start, 7 * i), n: 0 }));
+  for (const s of sessionList()) {
+    if (s.datum < start) continue;
+    const i = Math.floor(diffDays(start, s.datum) / 7);
+    if (i >= 0 && i < weeks) out[i].n += cardioDone(s).reduce((a, k) => a + Number(k.minuty || 0), 0);
+  }
+  return out;
+}
+
+/** "11:22–12:09 · 47 min" from a session's start and end. */
+export function timeRange(s) {
+  const a = s.zacatek ? s.zacatek.slice(11, 16) : null;
+  const b = s.konec ? s.konec.slice(11, 16) : null;
+  if (!a && !b) return '';
+  let t = a && b ? `${a}–${b}` : a ? `od ${a}` : `do ${b}`;
+  if (a && b) {
+    const m = Math.round((new Date(s.konec) - new Date(s.zacatek)) / 60000);
+    if (m > 0 && m < 600) t += ` · ${m} min`;
+  }
+  return t;
 }
 
 /** Preview of what a planned day contains (no suggestions needed). */

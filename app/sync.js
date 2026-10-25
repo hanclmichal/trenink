@@ -286,7 +286,7 @@ export function commitMessage(snapshot, mediaShas = []) {
       (s.deleted ? removed : trainings).push(label);
       continue;
     }
-    other.push({ 'plan.json': 'plán', 'cviky.json': 'knihovna cviků', 'kalendar.json': 'kalendář', 'media.json': 'videa ke cvikům' }[s.path] || s.path);
+    other.push({ 'plan.json': 'plán', 'cviky.json': 'knihovna cviků', 'kalendar.json': 'kalendář', 'media.json': 'videa ke cvikům', 'fakty.json': 'fakta' }[s.path] || s.path);
   }
   if (mediaShas.length) other.push(`média (${mediaShas.length})`);
   const parts = [];

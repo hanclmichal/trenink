@@ -395,6 +395,12 @@ export const DEFAULT_PLAN = {
     popis: 'Hlavní cviky na RIR 3 a začátek s lehčími vahami. Když jde série snadno (RIR 4 a víc), aplikace navrhne dvojnásobný skok.'
   },
   start: { 'back-squat': 70, 'bench-press': 60, 'deadlift': 60 },
+  kardio: {
+    zapnuto: true,
+    druh: 'pas',
+    minuty: 15,
+    popis: 'Lehké tempo (zóna 2): dýcháš rychleji, ale zvládneš mluvit v celých větách.'
+  },
   dny: {
     A: {
       nazev: 'Dřep',
@@ -433,6 +439,144 @@ export const DEFAULT_PLAN = {
     }
   }
 };
+
+/* ---------- cardio ---------- */
+
+/** Cardio machines and the extra fields each one records (minutes are always recorded). */
+export const KARDIO_DRUHY = {
+  pas: { nazev: 'Běžecký pás', pole: ['rychlost', 'sklon'] },
+  schody: { nazev: 'Schodišťový trenažér', pole: ['uroven'] },
+  kolo: { nazev: 'Rotoped', pole: ['uroven'] },
+  elipsa: { nazev: 'Eliptický trenažér', pole: ['uroven'] },
+  veslo: { nazev: 'Veslovací trenažér', pole: ['uroven'] },
+  chuze: { nazev: 'Chůze venku', pole: [] }
+};
+export const KARDIO_POLE = {
+  rychlost: { nazev: 'Rychlost', jednotka: 'km/h' },
+  sklon: { nazev: 'Sklon', jednotka: '%' },
+  uroven: { nazev: 'Úroveň', jednotka: '' },
+  tep: { nazev: 'Průměrný tep', jednotka: 'tep/min' }
+};
+
+/* ---------- health and longevity facts ---------- */
+
+/** How strong the evidence behind a fact is (shown next to every fact). */
+export const DUKAZY = {
+  'meta-rct': 'Souhrn kontrolovaných studií',
+  'rct': 'Kontrolovaná studie',
+  'kohorta': 'Pozorovací studie: souvislost, ne důkaz příčiny',
+  'mala': 'Malá studie: předběžný výsledek',
+  'prehled': 'Odborný přehled',
+  'doporuceni': 'Oficiální doporučení'
+};
+
+const f = (id, tema, dukaz, text, zdroj, url, vazby = {}) => ({ id, tema, dukaz, text, zdroj, ...(url ? { url } : {}), ...vazby });
+const DREPY = ['drep', 'jednonoz'];
+
+export const DEFAULT_FAKTY = { verze: 1, fakty: [
+  f('sila-umrtnost', 'sila', 'kohorta',
+    'Lidé, kteří pravidelně posilují, mají o 10–17 % nižší riziko úmrtí, nemocí srdce, rakoviny a cukrovky. Největší rozdíl byl už při 30–60 minutách posilování týdně.',
+    'Momma a kol., British Journal of Sports Medicine 2022 (metaanalýza kohortových studií)', 'https://bjsm.bmj.com/content/56/13/755'),
+  f('sila-a-kardio', 'kardio', 'kohorta',
+    'Samotné posilování souviselo s o 21 % nižší úmrtností, posilování spolu s kardiem s o 40 % nižší. Proto má kardio po tréninku smysl.',
+    'Saeidifard a kol., European Journal of Preventive Cardiology 2019 (11 studií, 370 000 lidí)', 'https://doi.org/10.1177/2047487319850718'),
+  f('stisk-ruky', 'sila', 'kohorta',
+    'Každých 5 kg slabší stisk ruky souviselo s o 16 % vyšším rizikem úmrtí. Síla stisku předpověděla úmrtí lépe než systolický krevní tlak. Mrtvý tah, přítahy i shyby úchop posilují.',
+    'Leong a kol., The Lancet 2015 (studie PURE, téměř 140 000 lidí ze 17 zemí)', 'https://doi.org/10.1016/S0140-6736(14)62000-6',
+    { cviky: ['deadlift', 'trap-bar-deadlift', 'rdl', 'barbell-row', 'db-row', 'pull-up', 'chin-up', 'hammer-curl', 'hanging-leg-raise'] }),
+  f('sila-ne-velikost', 'sila', 'kohorta',
+    'U lidí ve věku 70–79 let předpovídala délku života síla stehen a stisku ruky, ne velikost svalů. Počítá se síla.',
+    'Newman a kol., Journals of Gerontology 2006 (studie Health ABC, 2 292 lidí)', 'https://doi.org/10.1093/gerona/61.1.72',
+    { skupiny: ['drep', 'hinge-hlavni'] }),
+  f('sila-ubyva-rychleji', 'sila', 'kohorta',
+    'Ve stáří ubývá síla nohou zhruba 3× rychleji než svalová hmota: asi 3 % síly ročně proti 1 % svalů. Silový trénink nohou jde přímo proti tomu.',
+    'Goodpaster a kol., Journals of Gerontology 2006 (1 880 lidí ve věku 70–79 let)', 'https://doi.org/10.1093/gerona/61.10.1059',
+    { skupiny: DREPY }),
+  f('sednout-vstat', 'sila', 'kohorta',
+    'Test: sedni si na zem a vstaň bez opory rukou nebo kolen. U lidí 51–80 let souvisel každý bod navíc (z 10) s o 21 % nižší úmrtností. Dřepy a výpady trénují přesně tenhle pohyb.',
+    'Brito a kol., European Journal of Preventive Cardiology 2012 (2 002 lidí)', 'https://doi.org/10.1177/2047487312471759',
+    { skupiny: DREPY }),
+  f('kosti', 'sila', 'rct',
+    'Ženy po menopauze s řídnoucími kostmi cvičily 8 měsíců 2× týdně mrtvý tah, dřep a tlak nad hlavu (5 × 5 nad 85 % maxima). Hustota kostí v páteři jim vzrostla o 2,9 %, kontrolní skupině klesla o 1,2 %. Jediná komplikace byla lehká křeč v zádech.',
+    'Watson a kol., Journal of Bone and Mineral Research 2018 (studie LIFTMOR, 101 žen)', 'https://doi.org/10.1002/jbmr.3284',
+    { cviky: ['deadlift', 'trap-bar-deadlift', 'back-squat', 'front-squat', 'ohp'] }),
+  f('zlomenina-kycle', 'sila', 'prehled',
+    'Do roka po zlomenině kyčle zemře asi 22 % starších lidí. Proto se vyplatí mít silné nohy, jistou rovnováhu a pevné kosti.',
+    'Downey a kol., World Journal of Orthopedics 2019 (systematický přehled)', 'https://doi.org/10.5312/wjo.v10.i3.166',
+    { skupiny: ['hinge-hlavni', 'jednonoz'] }),
+  f('pady', 'sila', 'meta-rct',
+    'Cvičení snižuje počet pádů starších lidí asi o 23 %. Nejsilnější důkazy mají cviky na rovnováhu a běžné pohyby, jako je vstávání, výpady a výstupy na schod.',
+    'Sherrington a kol., Cochrane 2019 (108 studií, 23 407 lidí)', 'https://doi.org/10.1002/14651858.CD012424.pub2',
+    { skupiny: ['jednonoz'], cviky: ['goblet-squat'] }),
+  f('nikdy-neni-pozde', 'sila', 'mala',
+    'Křehcí lidé kolem 90 let po 8 týdnech těžkého posilování nohou zesílili v průměru o 174 % a jejich chůze se zrychlila o 48 %. Na posilování není nikdy pozdě.',
+    'Fiatarone a kol., JAMA 1990 (10 lidí)', 'https://pubmed.ncbi.nlm.nih.gov/2342214/',
+    { cviky: ['leg-press', 'leg-curl', 'back-squat'] }),
+  f('svaly-jako-rezerva', 'sila', 'mala',
+    'Zdravým lidem kolem 67 let vzalo 10 dní na lůžku skoro 1 kg svalů z nohou (z celého těla 1,5 kg). Svaly, které si teď vybuduješ, jsou rezerva na nemoc nebo pobyt v nemocnici.',
+    'Kortebein a kol., JAMA 2007 (12 lidí)', null,
+    { skupiny: DREPY }),
+  f('deprese', 'psychika', 'meta-rct',
+    'Posilování středně silně zmírňuje příznaky deprese. Fungovalo u zdravých i nemocných a nezáleželo na tom, kolik se cvičilo.',
+    'Gordon a kol., JAMA Psychiatry 2018 (33 randomizovaných studií, 1 877 lidí)', 'https://pedro.org.au/english/systematic-review-found-that-resistance-training-reduced-depressive-symptoms-among-adults/'),
+  f('mozek-sila', 'psychika', 'rct',
+    'Lidé ve věku 55–86 let s mírnou poruchou paměti posilovali 6 měsíců 2–3× týdně na 80 % maxima a zlepšilo se jim myšlení. Účinek vydržel i rok po skončení a byl tím větší, čím víc zesílili, hlavně v nohou.',
+    'Mavros a kol., Journal of the American Geriatrics Society 2017 (studie SMART, 100 lidí)', 'https://doi.org/10.1111/jgs.14542',
+    { skupiny: ['drep'] }),
+  f('mozek-cviceni', 'psychika', 'meta-rct',
+    'U lidí nad 50 let cvičení zlepšilo myšlení a paměť a fungovalo posilování i kardio. Přínos se ukázal u tréninků dlouhých 45–60 minut aspoň ve středním tempu.',
+    'Northey a kol., British Journal of Sports Medicine 2018 (36 studií)', 'https://bjsm.bmj.com/content/52/3/154'),
+  f('tlak-vydrze', 'srdce', 'meta-rct',
+    'Výdrže (izometrický trénink) snížily klidový krevní tlak nejvíc ze všech typů cvičení, v průměru o 8/4 mmHg. Nejlépe vyšel dřep u zdi. Plank je taky výdrž, i když ten přímo zkoumaný nebyl.',
+    'Edwards a kol., British Journal of Sports Medicine 2023 (270 studií, 15 827 lidí)', 'https://doi.org/10.1136/bjsports-2022-106503',
+    { skupiny: ['core'] }),
+  f('bolest-zad', 'sila', 'meta-rct',
+    'U chronické bolesti dolní části zad cvičení snížilo bolest v průměru o 15 bodů ze 100 oproti žádné léčbě. Žádný typ cvičení nevyšel jasně nejlépe, hlavní je cvičit pravidelně.',
+    'Hayden a kol., Cochrane 2021 (249 studií)', 'https://doi.org/10.1002/14651858.CD009790.pub2',
+    { skupiny: ['hinge', 'hinge-hlavni', 'core'] }),
+  f('kolena', 'sila', 'kohorta',
+    'Lidé se slabými předními stehny měli vyšší riziko artrózy kolene (ženy 1,85×, muži 1,43×). Důkazy jsou zatím slabší, ale silná stehna kolenům spíš pomáhají.',
+    'Øiestad a kol., British Journal of Sports Medicine 2022 (46 819 lidí)', 'https://bjsm.bmj.com/content/56/6/349',
+    { skupiny: DREPY }),
+  f('tuk', 'sila', 'meta-rct',
+    'Samotné posilování bez diety snížilo podíl tuku v těle v průměru o 1,5 procentního bodu a ubralo i útrobní (viscerální) tuk, který je pro zdraví nejrizikovější.',
+    'Wewege a kol., Sports Medicine 2022 (54 studií u zdravých dospělých)', 'https://doi.org/10.1007/s40279-021-01562-2'),
+  f('svaly-a-cukr', 'sila', 'mala',
+    'Při působení inzulinu ukládají kosterní svaly přes 85 % cukru, který tělo z krve zpracuje. Víc svalů znamená větší „sklad“ na glukózu.',
+    'DeFronzo a kol., Journal of Clinical Investigation 1981', 'https://www.jci.org/articles/view/110399',
+    { skupiny: ['drep', 'hinge-hlavni'] }),
+  f('svalova-pamet', 'sila', 'mala',
+    'Svaly si pamatují dřívější trénink. Geny aktivované posilováním zůstaly „označené“, i když se sval vrátil na původní velikost, a při novém tréninku pak sval rostl víc. Po pauze se proto vracíš rychleji.',
+    'Seaborne a kol., Scientific Reports 2018 (8 mužů)', 'https://www.nature.com/articles/s41598-018-20287-3'),
+  f('kliky-srdce', 'srdce', 'kohorta',
+    'Hasiči (muži, v průměru 39 let), kteří zvládli přes 40 kliků, měli během 10 let o 96 % méně srdečních příhod než ti, kteří zvládli méně než 10. Jde jen o muže s fyzickou prací a roli hraje i celková kondice.',
+    'Yang a kol., JAMA Network Open 2019 (přes 1 100 hasičů)', 'https://doi.org/10.1001/jamanetworkopen.2018.8341',
+    { skupiny: ['tlak-horizontalni'] }),
+  f('spanek', 'psychika', 'meta-rct',
+    'Pravidelné posilování zlepšuje spánek, nejvíc jeho kvalitu.',
+    'Kovacevic a kol., Sleep Medicine Reviews 2018 (13 randomizovaných studií)', 'https://doi.org/10.1016/j.smrv.2017.07.002'),
+  f('kondice-bez-stropu', 'kardio', 'kohorta',
+    'Mezi 122 000 lidmi po zátěžovém testu měli ti s nejhorší kondicí asi 5× vyšší riziko úmrtí než ti nejzdatnější. Hranici, od které by lepší kondice už nepomáhala, výzkumníci nenašli.',
+    'Mandsager a kol., JAMA Network Open 2018', 'https://doi.org/10.1001/jamanetworkopen.2018.3605'),
+  f('kondice-met', 'kardio', 'kohorta',
+    'Každé zlepšení kondice o 1 MET (asi o 3,5 ml kyslíku na kg za minutu) souviselo s o 13 % nižším rizikem úmrtí a o 15 % nižším rizikem nemocí srdce.',
+    'Kodama a kol., JAMA 2009 (33 studií, přes 100 000 lidí)', 'https://doi.org/10.1001/jama.2009.681'),
+  f('who', 'kardio', 'doporuceni',
+    'WHO doporučuje dospělým 150–300 minut středně náročného pohybu týdně (nebo 75–150 minut intenzivního) a posilování aspoň 2 dny v týdnu. Tři kardia po 20 minutách dají 60 minut, zbytek doplní chůze.',
+    'Světová zdravotnická organizace (WHO), doporučení 2020', 'https://www.who.int/publications/i/item/9789240015128'),
+  f('kroky', 'kardio', 'kohorta',
+    'Víc kroků denně souviselo s nižší úmrtností. Přínos se ustálil kolem 8 000–10 000 kroků u lidí pod 60 let a kolem 6 000–8 000 u starších.',
+    'Paluch a kol., Lancet Public Health 2022 (15 studií, 47 471 lidí)', 'https://pubmed.ncbi.nlm.nih.gov/35247352/'),
+  f('chuze-po-jidle', 'kardio', 'meta-rct',
+    'Lehká chůze po jídle místo sezení snížila hladinu cukru po jídle v průměru o 17 %.',
+    'Buffey a kol., Sports Medicine 2022 (7 studií)', null),
+  f('rychlost-chuze', 'kardio', 'kohorta',
+    'U lidí nad 65 let souviselo každých 0,1 m/s rychlejší běžné chůze se zhruba o 10 % nižším rizikem úmrtí.',
+    'Studenski a kol., JAMA 2011 (9 studií, 34 485 lidí)', null),
+  f('laktat-mytus', 'kardio', 'prehled',
+    'Kyselina mléčná (laktát) nezpůsobuje bolest svalů druhý den. Z krve zmizí do hodiny po cvičení, i když jen sedíš, a sval ji používá jako palivo. Bolest po 1–3 dnech souvisí s drobným poškozením svalu po nezvyklé zátěži a s jeho opravou.',
+    'Schwane a kol., Physician and Sportsmedicine 1983; Hall a kol., PM&R 2016', null)
+] };
 
 export const DEFAULT_KALENDAR = {
   verze: 1,

@@ -3,7 +3,7 @@
 import { h, icon, put } from './ui.js';
 import { mmss } from './format.js';
 
-let el = null, end = 0, total = 0, tick = 0, label = '', doneTimer = 0;
+let el = null, end = 0, total = 0, tick = 0, label = '', kind = 'pauza', doneTimer = 0;
 
 export const prefs = {
   get sound() { try { return localStorage.getItem('zvuk') !== '0'; } catch (e) { return true; } },
@@ -46,7 +46,7 @@ function render() {
   put(el,
     h('div', { class: 'rest__bar', style: { width: `${done ? 100 : (1 - left / total) * 100}%` } }),
     h('span', { class: 'rest__ico' }, icon('timer')),
-    h('div', { class: 'rest__t' }, h('b', { text: done ? 'Pauza je u konce' : mmss(left) }), h('small', { text: done ? label : `pauza · ${label}` })),
+    h('div', { class: 'rest__t' }, h('b', { text: done ? (kind === 'kardio' ? 'Kardio je hotové' : 'Pauza je u konce') : mmss(left) }), h('small', { text: done ? (kind === 'kardio' ? 'Odškrtni ho v tréninku' : label) : `${kind} · ${label}` })),
     done ? null : h('button', { class: 'rest__btn', type: 'button', 'aria-label': 'Ubrat 15 sekund', onclick: () => { end -= 15000; render(); } }, '−15'),
     done ? null : h('button', { class: 'rest__btn', type: 'button', 'aria-label': 'Přidat 15 sekund', onclick: () => { end += 15000; total += 15; render(); } }, '+15'),
     h('button', { class: 'rest__btn rest__x', type: 'button', 'aria-label': 'Zavřít pauzu', onclick: stopRest }, icon('close')));
@@ -54,15 +54,15 @@ function render() {
     clearInterval(tick); tick = 0;
     beep();
     clearTimeout(doneTimer);
-    doneTimer = setTimeout(stopRest, 12000);
+    doneTimer = setTimeout(stopRest, kind === 'kardio' ? 30000 : 12000);
   }
 }
 
-export function startRest(seconds, what = '') {
+export function startRest(seconds, what = '', what2 = 'pauza') {
   if (!seconds) return;
   unlockAudio();
   clearInterval(tick); clearTimeout(doneTimer);
-  total = seconds; end = Date.now() + seconds * 1000; label = what;
+  total = seconds; end = Date.now() + seconds * 1000; label = what; kind = what2;
   ensure().hidden = false;
   document.body.classList.add('has-rest');
   render();

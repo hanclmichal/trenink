@@ -2,9 +2,10 @@
 // go / skip, or the next planned training on a rest day.
 import { store, sessionList } from '../store.js';
 import { h, put, icon } from '../ui.js';
-import { plannedOn, projection, dayName, isReturnPhase, fmtSets, doneSets, recordsIn, sessionProgress } from '../program.js';
+import { plannedOn, projection, dayName, isReturnPhase, fmtSets, doneSets, recordsIn, sessionProgress, previewDay } from '../program.js';
 import { today, addDays, longDay, relDay, relLong, wdm, dm } from '../format.js';
 import { sessionEditor } from './session.js';
+import { factCard, dailyPool } from '../facts.js';
 import { startSession, skipDay, chooseTraining, setGo, previewList, openDaySheet } from './calendar.js';
 
 export function render(root, params, nav) {
@@ -27,6 +28,7 @@ export function render(root, params, nav) {
         const n = projection(addDays(t, 1), 1)[0];
         top.append(h('div', { class: 'note note--soft done-note' }, h('strong', { text: 'Dnešní trénink je hotový' }),
           n ? h('p', null, 'Další: ', h('b', { text: relLong(n.datum) }), ` · ${n.den} · ${dayName(n.den)}`) : null));
+        top.append(factCard(dailyPool(s.cviky.filter(e => !e.vynechano).map(e => e.cvik), 'hotovo'), { all: true }));
       }
       editor = sessionEditor(ed, t, nav, { onDeleted: draw });
       return;
@@ -56,6 +58,8 @@ export function render(root, params, nav) {
           h('button', { class: 'linkbtn', type: 'button', onclick: () => chooseTraining(t, nav) }, 'Rovnou začít jiný trénink'))));
     }
     if (back) parts.push(h('div', { class: 'note note--soft' }, h('strong', { text: 'Návrat po pauze' }), h('p', { text: `${back.popis} Platí do ${dm(back.do)}` })));
+    const focus = plan || next[0];
+    parts.push(factCard(dailyPool(focus ? previewDay(focus.poradi).map(x => x.cvik.id) : [], 'dnes'), { all: true }));
 
     const last = sessionList().filter(s => s.datum < t && sessionProgress(s).done > 0).pop();
     if (last) {

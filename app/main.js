@@ -13,7 +13,7 @@ import * as stats from './views/stats.js';
 import * as plan from './views/plan.js';
 import * as settings from './views/settings.js';
 
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.0';
 
 const routes = [
   { re: /^#?\/?$/, view: today, tab: 'dnes' },

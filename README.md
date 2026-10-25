@@ -14,7 +14,12 @@ a synchronizuje je se soukromým úložištěm `hanclmichal/trenink-data`. Stejn
 - **Cviky:** 50 cviků s vlastní animací pohybu, mapou procvičovaných partií, technikou a chybami;
   vlastní GIF nebo video ke cviku (uloží se do datového úložiště, do telefonu se stáhne jednou).
 - **Přehled:** vývoj hlavních cviků (nejtěžší série, odhad 1RM), detail libovolného cviku, rekordy,
-  docházka po týdnech, objem sérií po partiích.
+  docházka po týdnech, minuty kardia, objem sérií po partiích.
+- **Kardio po tréninku:** pás, schody, rotoped, eliptický a veslovací trenažér nebo chůze; minuty, rychlost/sklon
+  nebo úroveň, tep, odpočet. Předvyplní se podle minula, výchozí délka a stroj v Nastavení.
+- **Fakta o zdraví a dlouhověkosti:** 29 ověřených faktů (zdroj a síla důkazů u každého) na obrazovce Dnes,
+  u cviků a po dokončení tréninku. Data jsou v `fakty.json`, takže je jde doplňovat bez nové verze aplikace.
+- **Čas tréninku:** začátek se zapíše první odškrtnutou sérií, konec dokončením; obojí jde upravit.
 - **Offline:** service worker drží aplikaci, IndexedDB data. Změny se odešlou jedním commitem, jakmile je signál.
 
 ## Jak to funguje
@@ -37,7 +42,8 @@ souborů zůstane verze z telefonu a druhá se uloží do `konflikty/`.
 ```
 index.html, styles.css, sw.js, manifest.webmanifest
 app/          moduly (ES modules, bez build kroku)
-  data.js     výchozí knihovna cviků, plán a kalendář (použijí se, když v datech chybí)
+  data.js     výchozí knihovna cviků, plán, kalendář a fakta (použijí se, když v datech chybí)
+  facts.js    výběr a zobrazení faktů
   program.js  rotace, plánování, návrhy vah, statistiky
   anim.js     animace cviků (kostra + kinematika, SVG)
   body.js     mapa svalů zepředu a zezadu

@@ -8,6 +8,7 @@ import { mountAnimation } from '../anim.js';
 import { muscleMap } from '../body.js';
 import { history, fmtSets, exerciseSeries } from '../program.js';
 import { lineChart, legend } from '../charts.js';
+import { factsForDetail, factBody, openAllFacts } from '../facts.js';
 import { dmy, num } from '../format.js';
 
 export function animBlock(cvik) {
@@ -122,6 +123,13 @@ export function exerciseContent(cvik, onPick) {
         h('div', { class: 'mlist' },
           h('p', { class: 'mlist__h' }, h('i', { class: 'mk mk--hl' }), 'Hlavní'), h('div', { class: 'chips' }, muscles(cvik.hlavni || [], 'chip--hl')),
           (cvik.vedlejsi || []).length ? [h('p', { class: 'mlist__h' }, h('i', { class: 'mk mk--ved' }), 'Pomocné'), h('div', { class: 'chips' }, muscles(cvik.vedlejsi, 'chip--ved'))] : null))),
+    (() => {
+      const fs = factsForDetail(cvik, 3);
+      if (!fs.length) return null;
+      return h('section', { class: 'sec' }, h('h3', { class: 'sec__h', text: 'Co ti to dá ve stáří' }),
+        h('ul', { class: 'factlist' }, fs.map(f => h('li', null, factBody(f)))),
+        h('button', { class: 'linkbtn', type: 'button', onclick: openAllFacts }, `Všechna fakta (${store.fakty.length})`));
+    })(),
     h('section', { class: 'sec' }, h('h3', { class: 'sec__h', text: 'Technika' }), h('ol', { class: 'steps' }, (cvik.technika || []).map(t => h('li', { text: t })))),
     (cvik.chyby || []).length ? h('section', { class: 'sec' }, h('h3', { class: 'sec__h', text: 'Nejčastější chyby' }), h('ul', { class: 'bad' }, cvik.chyby.map(t => h('li', { text: t })))) : null,
     mediaSection(cvik),

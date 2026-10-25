@@ -2,7 +2,8 @@
 import { store, sessionList } from '../store.js';
 import { h, put } from '../ui.js';
 import { PARTIE } from '../data.js';
-import { exerciseSeries, weeklyCounts, volumeByGroup, sessionProgress, fmtSets, doneSets } from '../program.js';
+import { exerciseSeries, weeklyCounts, volumeByGroup, sessionProgress, fmtSets, doneSets, weeklyCardio, cardioDone } from '../program.js';
+import { KARDIO_DRUHY } from '../data.js';
 import { lineChart, legend, columns, hbars } from '../charts.js';
 import { today, addDays, dm, dmy, num, relDay, weekStart, plural } from '../format.js';
 
@@ -71,6 +72,19 @@ function detail(nav) {
   return box;
 }
 
+function cardioSection(t) {
+  const weeks = weeklyCardio(12, t);
+  const all = sessionList().flatMap(s => cardioDone(s).map(k => ({ ...k, datum: s.datum })));
+  const month = all.filter(k => k.datum.slice(0, 7) === t.slice(0, 7)).reduce((a, k) => a + Number(k.minuty || 0), 0);
+  const byKind = {};
+  for (const k of all) byKind[k.druh] = (byKind[k.druh] || 0) + Number(k.minuty || 0);
+  return h('section', { class: 'stat' },
+    h('div', { class: 'stat__h' }, 'Kardio', h('small', { text: 'minuty po tréninku za týden' })),
+    all.length ? columns(weeks.map(w => ({ label: dm(w.od), v: w.n, now: w.od === weekStart(t), title: `týden od ${dm(w.od)}: ${w.n} min` })), { min: 30 }) : h('p', { class: 'muted', text: 'Zatím žádné odškrtnuté kardio.' }),
+    all.length ? h('p', { class: 'small', text: `Tento měsíc ${month} min. ` + Object.entries(byKind).sort((a, b) => b[1] - a[1]).map(([d, m]) => `${(KARDIO_DRUHY[d] || { nazev: d }).nazev} ${m} min`).join(', ') + '.' }) : null,
+    h('p', { class: 'muted small', text: 'WHO doporučuje 150–300 minut středně náročného pohybu týdně. Kardio po tréninku je jeho část, zbytek doplní chůze a běžný pohyb.' }));
+}
+
 export function render(root, params, nav) {
   nav.setTitle('Přehled');
   const localNav = { ...nav, refresh: () => draw() };
@@ -95,6 +109,7 @@ export function render(root, params, nav) {
       h('section', { class: 'stat' },
         h('div', { class: 'stat__h' }, 'Docházka', h('small', { text: 'tréninky za týden, cíl 3' })),
         columns(weeks.map(w => ({ label: dm(w.od), v: w.n, now: w.od === weekStart(t), title: `týden od ${dm(w.od)}: ${w.n}` })), { target: 3, min: 3 })),
+      cardioSection(t),
       h('section', { class: 'stat' },
         h('div', { class: 'stat__h' }, 'Objem po partiích', h('small', { text: 'pracovní série za 7 dní' })),
         hbars(PARTIE.map(p => ({ label: p.nazev, v: vol7[p.id], avg: vol28[p.id] / 4 })), { band: [10, 20], max: 22 }),

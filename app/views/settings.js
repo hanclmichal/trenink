@@ -4,6 +4,8 @@ import { sync, testConnection, status } from '../sync.js';
 import { h, put, toast, openSheet, closeSheet, confirmSheet, fmtTime } from '../ui.js';
 import { plural, DOW_SHORT, DOW_LONG, dm } from '../format.js';
 import { prefs } from '../timer.js';
+import { KARDIO_DRUHY } from '../data.js';
+import { kardioPlan } from '../program.js';
 
 const TOKEN_URL = 'https://github.com/settings/personal-access-tokens';
 
@@ -99,6 +101,21 @@ export function render(root, params, nav) {
       h('h2', { text: 'Návrat po pauze' }),
       h('p', { class: 'muted small', text: 'Do tohoto dne mají hlavní cviky cíl RIR 3 a začínají na lehčích vahách. Když jde série snadno, aplikace navrhne větší skok.' }),
       h('label', { class: 'form__row' }, h('span', { class: 'form__label', text: 'Platí do' }), navIn)));
+
+    // cardio after training
+    const kp = kardioPlan();
+    const setK = async patch => { await savePlan(p => { p.kardio = { ...kardioPlan(), ...patch }; }); draw(); };
+    const ksel = h('select', { class: 'field', 'aria-label': 'Výchozí stroj', onchange: ev => setK({ druh: ev.target.value }) }, Object.entries(KARDIO_DRUHY).map(([id, d]) => h('option', { value: id, text: d.nazev })));
+    ksel.value = kp.druh;
+    box.append(h('section', { class: 'panel' },
+      h('h2', { text: 'Kardio po tréninku' }),
+      h('label', { class: 'switch' },
+        h('input', { type: 'checkbox', checked: kp.zapnuto ? true : null, onchange: ev => setK({ zapnuto: ev.target.checked }) }),
+        h('span', { class: 'switch__t' }, h('b', { text: 'Přidávat kardio do každého tréninku' }), h('small', { class: 'muted', text: 'Stroj a nastavení se předvyplní podle minula. Jednotlivě ho přidáš i odebereš v tréninku.' }))),
+      h('div', { class: 'form__row' }, h('span', { class: 'form__label', text: 'Výchozí délka' }),
+        h('div', { class: 'seg', role: 'group', 'aria-label': 'Výchozí délka kardia' }, [10, 15, 20, 30].map(m =>
+          h('button', { type: 'button', 'aria-pressed': String(kp.minuty === m), onclick: () => setK({ minuty: m }) }, `${m} min`)))),
+      h('label', { class: 'form__row' }, h('span', { class: 'form__label', text: 'Výchozí stroj' }), ksel)));
 
     // training screen
     const toggle = (label, get, set, note) => h('label', { class: 'switch' },

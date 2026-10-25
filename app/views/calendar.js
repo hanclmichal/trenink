@@ -2,8 +2,9 @@
 // back-fill or review a training. The day actions are shared with the Dnes view.
 import { store, saveKalendar, saveSession, deleteSession } from '../store.js';
 import { h, put, icon, toast, openSheet, closeSheet, confirmSheet, chip } from '../ui.js';
-import { projection, plannedOn, isDefaultDay, override, dayOf, nextPoradi, buildSession, previewDay, dayName, cycleLength, fmtSets, doneSets, sessionProgress } from '../program.js';
-import { today, addDays, dow, parseKey, dayKey, dm, wdm, longDay, relDay, relLong, dot, monthName, isoNow, DOW_SHORT, plural } from '../format.js';
+import { projection, plannedOn, isDefaultDay, override, dayOf, nextPoradi, buildSession, previewDay, dayName, cycleLength, fmtSets, doneSets, sessionProgress, cardioDone, timeRange } from '../program.js';
+import { KARDIO_DRUHY, KARDIO_POLE } from '../data.js';
+import { today, addDays, dow, parseKey, dayKey, dm, wdm, longDay, relDay, relLong, dot, monthName, DOW_SHORT, plural, num } from '../format.js';
 import { goalText } from './session.js';
 
 /* ---------- shared day actions ---------- */
@@ -47,7 +48,6 @@ export function pickOtherDay(msg, from, nav) {
 export async function startSession(date, poradi, nav) {
   if (!store.sessions.has(date)) {
     const s = buildSession(date, poradi);
-    if (date === today()) s.zacatek = isoNow();
     await saveSession(s);
   }
   closeAllAnd(() => nav.go(date === today() ? '#/dnes' : `#/trenink/${date}`));
@@ -84,11 +84,17 @@ export function openDaySheet(date, nav) {
   if (sess) {
     const p = sessionProgress(sess);
     title = `${wdm(date)} · ${sess.den} · ${dayName(sess.den)}`;
-    body.push(h('div', { class: 'chips' }, chip(`týden ${sess.varianta}`, 'chip--soft'), sess.stav === 'hotovo' ? chip('Hotovo', 'chip--ok') : chip('Rozpracováno', 'chip--soft'), h('span', { class: 'muted small', text: `${p.done}/${p.total} sérií` })));
+    body.push(h('div', { class: 'chips' }, chip(`týden ${sess.varianta}`, 'chip--soft'), sess.stav === 'hotovo' ? chip('Hotovo', 'chip--ok') : chip('Rozpracováno', 'chip--soft'), h('span', { class: 'muted small', text: `${p.done}/${p.total} sérií` }), timeRange(sess) ? h('span', { class: 'muted small', text: timeRange(sess) }) : null));
     body.push(h('ul', { class: 'plist' }, sess.cviky.filter(e => !e.vynechano).map(e => {
       const c = store.cvik.get(e.cvik) || { nazev: e.cvik };
       const d = doneSets(e);
       return h('li', null, h('b', { text: c.nazev }), h('span', { class: 'muted', text: d.length ? fmtSets(d, c) : 'neodškrtnuto' }));
+    })));
+    const kd = cardioDone(sess);
+    if (kd.length) body.push(h('ul', { class: 'plist' }, kd.map(k => {
+      const d = KARDIO_DRUHY[k.druh] || { nazev: k.druh, pole: [] };
+      const extra = d.pole.filter(f => k[f] != null).map(f => `${num(k[f])}${KARDIO_POLE[f].jednotka ? ' ' + KARDIO_POLE[f].jednotka : ''}`);
+      return h('li', null, h('b', { text: `Kardio: ${d.nazev}` }), h('span', { class: 'muted', text: [`${k.minuty} min`, ...extra].join(', ') }));
     })));
     if (sess.poznamka) body.push(h('p', { class: 'note', text: sess.poznamka }));
     body.push(h('div', { class: 'row-actions row-actions--wrap' },

@@ -1,6 +1,6 @@
 // In-memory model of the data repository, persisted to IndexedDB on every change.
 import { files as fileDb, media as mediaDb, kv } from './db.js';
-import { DEFAULT_CVIKY, DEFAULT_PLAN, DEFAULT_KALENDAR } from './data.js';
+import { DEFAULT_CVIKY, DEFAULT_PLAN, DEFAULT_KALENDAR, DEFAULT_FAKTY } from './data.js';
 import { clone } from './format.js';
 
 const listeners = new Set();
@@ -11,6 +11,7 @@ export const store = {
   cvik: new Map(),         // id -> exercise
   kalendar: clone(DEFAULT_KALENDAR),
   mediaMap: {},            // media.json: cvikId -> { soubor, typ, velikost } | { url }
+  fakty: [],               // fakty.json: health and longevity facts
   sessions: new Map(),     // date -> session
   mediaIndex: {},          // path -> sha of binary files in the repository
   mediaLocal: new Map(),   // path -> { path, sha, pending, deleted, type } (blobs stay in IndexedDB)
@@ -29,7 +30,7 @@ export function notify() {
 }
 
 export const SESSION_RE = /^treninky\/(\d{4}-\d{2}-\d{2})\.json$/;
-export const tracked = p => ['plan.json', 'cviky.json', 'kalendar.json', 'media.json'].includes(p) || SESSION_RE.test(p) || /^konflikty\/[^/]+\.json$/.test(p);
+export const tracked = p => ['plan.json', 'cviky.json', 'kalendar.json', 'media.json', 'fakty.json'].includes(p) || SESSION_RE.test(p) || /^konflikty\/[^/]+\.json$/.test(p);
 export const isMedia = p => /^media\/[^/]+$/.test(p);
 export const sessionPath = date => `treninky/${date}.json`;
 
@@ -64,6 +65,8 @@ export function rebuild() {
   if (!Array.isArray(store.kalendar.vychoziDny)) store.kalendar.vychoziDny = clone(DEFAULT_KALENDAR.vychoziDny);
   if (!store.kalendar.dny || typeof store.kalendar.dny !== 'object') store.kalendar.dny = {};
   store.mediaMap = parseJson('media.json', { verze: 1, cviky: {} }).cviky || {};
+  const fk = parseJson('fakty.json', DEFAULT_FAKTY);
+  store.fakty = Array.isArray(fk.fakty) ? fk.fakty.filter(x => x && x.id && x.text) : clone(DEFAULT_FAKTY.fakty);
   store.sessions = new Map();
   for (const f of store.files.values()) {
     const m = f.path.match(SESSION_RE);
@@ -136,6 +139,7 @@ export async function ensureDefaults() {
   if (!store.files.has('plan.json')) pairs.push(['plan.json', serialize(DEFAULT_PLAN)]);
   if (!store.files.has('cviky.json')) pairs.push(['cviky.json', serialize(DEFAULT_CVIKY)]);
   if (!store.files.has('kalendar.json')) pairs.push(['kalendar.json', serialize(DEFAULT_KALENDAR)]);
+  if (!store.files.has('fakty.json')) pairs.push(['fakty.json', serialize(DEFAULT_FAKTY)]);
   if (pairs.length) await writeMany(pairs);
   return pairs.length;
 }

@@ -3,8 +3,9 @@
 // (a sync that brought a newer version) are picked up when nothing is being edited.
 import { store, saveSession, deleteSession, savePlan } from '../store.js';
 import { h, put, icon, toast, openSheet, closeSheet, confirmSheet, numInput, chip } from '../ui.js';
-import { SKUPINY, SVALY } from '../data.js';
-import { makeExercise, warmup, dayName, isReturnPhase, recordsIn, sessionProgress, slotEntry, doneSets } from '../program.js';
+import { SKUPINY, SVALY, KARDIO_DRUHY, KARDIO_POLE } from '../data.js';
+import { makeExercise, warmup, dayName, isReturnPhase, recordsIn, sessionProgress, slotEntry, doneSets, makeCardio, kardioPlan, cardioDone, lastCardio, timeRange } from '../program.js';
+import { factCard, dailyPool } from '../facts.js';
 import { mountAnimation } from '../anim.js';
 import { openExerciseSheet } from './exercise.js';
 import { startRest, stopRest, keepAwake, unlockAudio } from '../timer.js';
@@ -34,7 +35,7 @@ export function thumb(cvik) {
 
 export function sessionEditor(root, date, nav, opts = {}) {
   let local = null, lastSaved = '', saveTimer = 0;
-  const cards = [];
+  const cards = [], kcards = [];
   let headEl = null, finishEl = null;
   const isToday = date === today();
 
@@ -55,8 +56,11 @@ export function sessionEditor(root, date, nav, opts = {}) {
   function renderHead() {
     const p = sessionProgress(local);
     const pct = p.total ? Math.round(p.done / p.total * 100) : 0;
+    const tr = timeRange(local);
     const el = h('div', { class: 'shead' },
-      h('p', { class: 'shead__date', text: longDay(date) + (local.zacatek ? ` · začátek ${local.zacatek.slice(11, 16)}` : '') }),
+      h('div', { class: 'shead__top' },
+        h('p', { class: 'shead__date', text: longDay(date) }),
+        h('button', { class: 'shead__time', type: 'button', 'aria-label': tr ? `Čas tréninku ${tr}, upravit` : 'Zadat čas tréninku', onclick: openTime }, icon('clock'), tr || 'Zadat čas')),
       h('h1', { class: 'shead__title' }, `${local.den} · ${dayName(local.den)}`),
       h('div', { class: 'chips' },
         chip(`týden ${local.varianta}`, 'chip--soft'),
@@ -156,7 +160,7 @@ export function sessionEditor(root, date, nav, opts = {}) {
     const st = ex.serie[j];
     st.hotovo = !st.hotovo;
     if (st.hotovo && (st.opak == null)) st.opak = ex.cil && ex.cil.opak ? ex.cil.opak[0] : null;
-    if (!local.zacatek && st.hotovo) local.zacatek = isoNow();
+    if (!local.zacatek && st.hotovo && isToday) local.zacatek = isoNow();
     row.classList.toggle('set--done', st.hotovo);
     btn.setAttribute('aria-pressed', String(st.hotovo));
     save(true);
@@ -172,7 +176,12 @@ export function sessionEditor(root, date, nav, opts = {}) {
         const cvik = store.cvik.get(ex.cvik);
         startRest((ex.cil && ex.cil.pauza) || 90, cvik ? cvik.nazev : '');
       } else if (toPartner) toast(`Teď ${store.cvik.get(next.cvik)?.nazev || 'druhý cvik'}, bez pauzy.`, 2000);
-      if (lastOverall) { stopRest(); finishEl?.classList.add('finish--ready'); finishEl?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+      if (lastOverall) {
+        stopRest();
+        const k = (local.kardio || []).findIndex(x => !x.hotovo);
+        if (k >= 0 && kcards[k]) { toast('Série hotové. Teď kardio.', 2200); kcards[k].scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+        else { finishEl?.classList.add('finish--ready'); finishEl?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+      }
     }
   }
 
@@ -189,6 +198,103 @@ export function sessionEditor(root, date, nav, opts = {}) {
     const n = card(i);
     cards[i].replaceWith(n);
     cards[i] = n;
+  }
+
+  /* ---------- time ---------- */
+  function openTime() {
+    const hm = v => (v ? v.slice(11, 16) : '');
+    const a = h('input', { class: 'field', type: 'time', value: hm(local.zacatek) });
+    const b = h('input', { class: 'field', type: 'time', value: hm(local.konec) });
+    const msg = h('p', { class: 'warn small', role: 'alert' });
+    openSheet('Čas tréninku', [
+      h('div', { class: 'two' },
+        h('label', { class: 'form__row' }, h('span', { class: 'form__label', text: 'Začátek' }), a),
+        h('label', { class: 'form__row' }, h('span', { class: 'form__label', text: 'Konec' }), b)),
+      h('p', { class: 'muted small', text: 'Začátek se zapíše sám první odškrtnutou sérií, konec tlačítkem Dokončit trénink. Prázdné pole čas smaže.' }),
+      msg,
+      h('div', { class: 'row-actions' },
+        h('button', { class: 'btn', type: 'button', onclick: () => closeSheet() }, 'Zrušit'),
+        h('button', { class: 'btn btn--primary', type: 'button', onclick: () => {
+          const va = a.value, vb = b.value;
+          if (va && vb && vb <= va) { msg.textContent = 'Konec musí být po začátku.'; return; }
+          local.zacatek = va ? `${date}T${va}` : null;
+          local.konec = vb ? `${date}T${vb}` : null;
+          save(true); renderHead(); closeSheet();
+          toast(timeRange(local) ? `Čas uložen: ${timeRange(local)}.` : 'Čas smazán.');
+        } }, 'Uložit'))]);
+  }
+
+  /* ---------- cardio ---------- */
+  function cardioCard(k) {
+    const kd = local.kardio[k];
+    const plan = kardioPlan();
+    const def = KARDIO_DRUHY[kd.druh] || { nazev: kd.druh, pole: [] };
+    const el = h('article', { class: 'excard excard--cardio' + (kd.hotovo ? ' excard--done' : '') });
+    const sel = h('select', { class: 'kselect', 'aria-label': 'Stroj' }, Object.entries(KARDIO_DRUHY).map(([id, d]) => h('option', { value: id, text: d.nazev })));
+    sel.value = kd.druh;
+    sel.addEventListener('change', () => {
+      const prev = lastCardio(date, sel.value);
+      Object.assign(kd, { druh: sel.value, rychlost: prev ? prev.rychlost ?? null : null, sklon: prev ? prev.sklon ?? null : null, uroven: prev ? prev.uroven ?? null : null });
+      save(true); rerenderCardio(k);
+    });
+    el.append(h('header', { class: 'excard__h' },
+      h('span', { class: 'thumb thumb--ico', 'aria-hidden': 'true' }, icon('run')),
+      h('span', { class: 'excard__nt' }, h('b', { text: 'Kardio po tréninku' }), sel),
+      h('button', { class: 'iconbtn iconbtn--quiet', type: 'button', 'aria-label': 'Odebrat kardio', onclick: () => confirmSheet('Odebrat kardio?', 'Kardio zmizí z tohoto tréninku.', 'Odebrat', () => { local.kardio.splice(k, 1); save(true); rerenderAll(); }, true) }, icon('trash'))));
+    if (plan.popis) el.append(h('p', { class: 'excard__goal', text: plan.popis }));
+    const prev = lastCardio(date, kd.druh);
+    if (prev) {
+      const bits = [`${prev.minuty} min`, ...def.pole.filter(f => prev[f] != null).map(f => `${num(prev[f])}${KARDIO_POLE[f].jednotka ? ' ' + KARDIO_POLE[f].jednotka : ''}`)];
+      el.append(h('div', { class: 'excard__hint' }, h('p', { class: 'muted', text: `Minule: ${bits.join(', ')}` })));
+    }
+    const field = (key, label, unit, attrs = {}) => {
+      const inp = numInput(kd[key], { 'aria-label': `${label}${unit ? ' (' + unit + ')' : ''}`, ...attrs });
+      inp.addEventListener('focus', () => inp.select());
+      inp.addEventListener('input', () => {
+        const v = parseNum(inp.value);
+        kd[key] = key === 'minuty' || key === 'tep' ? (v == null ? null : Math.round(v)) : v;
+        if (key === 'minuty') timerLabel.textContent = `Odpočet ${kd.minuty || plan.minuty} min`;
+        save();
+      });
+      return h('label', { class: 'kf' }, h('span', { class: 'kf__l', text: label }), h('span', { class: 'set__f' }, inp, h('span', { text: unit })));
+    };
+    el.append(h('div', { class: 'kfields' },
+      field('minuty', 'Čas', 'min', { inputmode: 'numeric' }),
+      def.pole.map(p => field(p, KARDIO_POLE[p].nazev, KARDIO_POLE[p].jednotka)),
+      field('tep', 'Tep (nepovinné)', '', { inputmode: 'numeric' })));
+    const ok = h('button', { class: 'btn ' + (kd.hotovo ? 'btn--primary' : ''), type: 'button', 'aria-pressed': String(!!kd.hotovo) }, icon('check'), kd.hotovo ? 'Hotovo' : 'Odškrtnout');
+    const timerLabel = h('span', { text: `Odpočet ${kd.minuty || plan.minuty} min` });
+    ok.addEventListener('click', () => {
+      kd.hotovo = !kd.hotovo;
+      if (kd.hotovo && !kd.minuty) kd.minuty = plan.minuty;
+      save(true); rerenderCardio(k); refreshHead();
+      if (kd.hotovo) {
+        stopRest();
+        const setsDone = local.cviky.every(e => e.vynechano || e.serie.every(s => s.hotovo));
+        if (setsDone && (local.kardio || []).every(x => x.hotovo)) { finishEl?.classList.add('finish--ready'); finishEl?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+      }
+    });
+    el.append(h('div', { class: 'kact' },
+      h('button', { class: 'btn', type: 'button', onclick: () => { unlockAudio(); startRest((kd.minuty || plan.minuty) * 60, def.nazev, 'kardio'); } }, icon('timer'), timerLabel),
+      ok));
+    const noteBtn = h('button', { class: 'linkbtn', type: 'button', hidden: !!kd.poznamka }, '+ Jak to šlo');
+    const note = h('textarea', { class: 'field note-ta', rows: 2, placeholder: 'Jak to šlo? Tempo, dech, pocit…', hidden: !kd.poznamka });
+    note.value = kd.poznamka || '';
+    note.addEventListener('input', () => { kd.poznamka = note.value; save(); });
+    noteBtn.addEventListener('click', () => { note.hidden = false; noteBtn.hidden = true; note.focus(); });
+    el.append(h('div', { class: 'excard__foot' }, noteBtn), note);
+    return el;
+  }
+  function rerenderCardio(k) {
+    const n = cardioCard(k);
+    kcards[k].replaceWith(n);
+    kcards[k] = n;
+  }
+  function addCardio() {
+    local.kardio = local.kardio || [];
+    local.kardio.push(makeCardio(date));
+    save(true); rerenderAll();
+    kcards[kcards.length - 1]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
   function refreshHead() { if (headEl) renderHead(); renderFinish(); }
 
@@ -279,7 +385,9 @@ export function sessionEditor(root, date, nav, opts = {}) {
     note.value = local.poznamka || '';
     note.addEventListener('input', () => { local.poznamka = note.value; save(); });
     const el = h('section', { class: 'finish' + (!done && p.total && p.done === p.total ? ' finish--ready' : '') },
-      h('button', { class: 'btn btn--block', type: 'button', onclick: openAdd }, icon('plus'), 'Přidat cvik'),
+      h('div', { class: 'two' },
+        h('button', { class: 'btn', type: 'button', onclick: openAdd }, icon('plus'), 'Přidat cvik'),
+        h('button', { class: 'btn', type: 'button', onclick: addCardio }, icon('run'), 'Přidat kardio')),
       h('h3', { class: 'sec__h', text: 'Celkový pocit' }), pocit, note,
       done
         ? h('div', { class: 'row-actions row-actions--wrap' },
@@ -308,36 +416,46 @@ export function sessionEditor(root, date, nav, opts = {}) {
     const p = sessionProgress(local);
     const go = () => {
       local.stav = 'hotovo';
-      local.konec = isoNow();
+      if (isToday) local.konec = isoNow();
       save(true);
       stopRest(); keepAwake(false);
       rerenderAll();
       const recs = recordsIn(local);
       const vol = local.cviky.reduce((a, ex) => a + doneSets(ex).reduce((b, s) => b + (s.kg > 0 ? s.kg * s.opak : 0), 0), 0);
       const mins = local.zacatek ? Math.round((new Date(local.konec) - new Date(local.zacatek)) / 60000) : null;
+      const kmin = cardioDone(local).reduce((a, k) => a + Number(k.minuty || 0), 0);
+      const ids = local.cviky.filter(e => !e.vynechano && doneSets(e).length).map(e => e.cvik);
       openSheet('Trénink hotový', [
         h('div', { class: 'tiles' },
           h('div', { class: 'tile' }, h('b', { class: 'tile__v', text: String(p.done) }), h('span', { class: 'tile__d', text: plural(p.done, 'série', 'série', 'sérií') })),
           h('div', { class: 'tile' }, h('b', { class: 'tile__v', text: vol >= 1000 ? `${num(vol / 1000)} t` : `${num(vol)} kg` }), h('span', { class: 'tile__d', text: 'zvednuto celkem' })),
-          mins && mins > 0 && mins < 400 ? h('div', { class: 'tile' }, h('b', { class: 'tile__v', text: `${mins} min` }), h('span', { class: 'tile__d', text: 'délka' })) : null),
+          mins && mins > 0 && mins < 400 ? h('div', { class: 'tile' }, h('b', { class: 'tile__v', text: `${mins} min` }), h('span', { class: 'tile__d', text: 'délka' })) : null,
+          kmin ? h('div', { class: 'tile' }, h('b', { class: 'tile__v', text: `${kmin} min` }), h('span', { class: 'tile__d', text: 'kardio' })) : null),
         recs.length ? h('div', { class: 'note note--soft' }, h('strong', { text: 'Nové osobní rekordy' }), h('ul', { class: 'prs' }, recs.map(r => h('li', null, h('b', { text: r.cvik.nazev }), `: ${r.text}`)))) : null,
+        factCard(dailyPool(ids, 'konec'), { title: 'Co ti dnešek dává do budoucna', small: true }),
         h('div', { class: 'row-actions' }, h('button', { class: 'btn btn--primary', type: 'button', onclick: () => closeSheet() }, 'Zavřít'))]);
     };
-    if (p.done < p.total) confirmSheet('Dokončit trénink?', `Odškrtnuto ${p.done} z ${p.total} sérií. Neodškrtnuté série se do statistik nepočítají.`, 'Dokončit', go);
-    else go();
+    const kOpen = (local.kardio || []).filter(k => !k.hotovo).length;
+    if (p.done < p.total || kOpen) {
+      const parts = [];
+      if (p.done < p.total) parts.push(`Odškrtnuto ${p.done} z ${p.total} sérií.`);
+      if (kOpen) parts.push('Kardio není odškrtnuté.');
+      confirmSheet('Dokončit trénink?', `${parts.join(' ')} Neodškrtnuté položky se do statistik nepočítají.`, 'Dokončit', go);
+    } else go();
   }
 
   /* ---------- whole view ---------- */
   function rerenderAll() {
     if (!local) return;
-    headEl = null; finishEl = null; cards.length = 0;
+    headEl = null; finishEl = null; cards.length = 0; kcards.length = 0;
     const day = store.plan.dny[local.den] || {};
     const back = isReturnPhase(date) && store.plan.navrat;
     put(root,
       renderHead(),
       back && local.stav !== 'hotovo' ? h('div', { class: 'note note--soft' }, h('strong', { text: `Návrat po pauze (do ${dm(back.do)})` }), h('p', { text: back.popis || '' })) : null,
       (day.rozcvicka || []).length ? h('details', { class: 'warm' }, h('summary', { text: 'Rozcvička' }), h('ul', null, day.rozcvicka.map(t => h('li', { text: t })))) : null,
-      h('div', { class: 'exlist' }, local.cviky.map((_, i) => { const c = card(i); cards[i] = c; return c; })),
+      h('div', { class: 'exlist' }, local.cviky.map((_, i) => { const c = card(i); cards[i] = c; return c; }),
+        (local.kardio || []).map((_, k) => { const c = cardioCard(k); kcards[k] = c; return c; })),
       renderFinish());
     keepAwake(isToday && local.stav !== 'hotovo');
   }
